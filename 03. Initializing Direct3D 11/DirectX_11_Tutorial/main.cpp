@@ -117,8 +117,22 @@ bool InitializeWindow(HINSTANCE hInstance, int ShowWnd, int width, int height, b
 
 bool InitializeDirect3d11App(HINSTANCE hInstance)
 {
+    //DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
+    //swapChainDesc.BufferCount = 1;
+    //swapChainDesc.BufferDesc.Width = Width;
+    //swapChainDesc.BufferDesc.Height = Height;
+    //swapChainDesc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    //swapChainDesc.BufferDesc.RefreshRate.Numerator = 60;
+    //swapChainDesc.BufferDesc.RefreshRate.Denominator = 1;
+    //swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    //swapChainDesc.OutputWindow = hwnd;
+    //swapChainDesc.SampleDesc.Count = 1;
+    //swapChainDesc.SampleDesc.Quality = 0;
+    //swapChainDesc.Windowed = TRUE;
+
+    // For Triple Buffer
     DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
-    swapChainDesc.BufferCount = 1;
+    swapChainDesc.BufferCount = 2;
     swapChainDesc.BufferDesc.Width = Width;
     swapChainDesc.BufferDesc.Height = Height;
     swapChainDesc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -129,6 +143,11 @@ bool InitializeDirect3d11App(HINSTANCE hInstance)
     swapChainDesc.SampleDesc.Count = 1;
     swapChainDesc.SampleDesc.Quality = 0;
     swapChainDesc.Windowed = TRUE;
+    // Latest SwapEffect Model. When using the flip model, swapChainDesc.BufferCount must be set to 2 or higher.
+    swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+    // In Full Screen Mode
+    //swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
+
 
     D3D_FEATURE_LEVEL featureLevel = D3D_FEATURE_LEVEL_11_0;
 
