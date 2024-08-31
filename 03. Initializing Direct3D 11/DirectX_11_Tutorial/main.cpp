@@ -150,8 +150,6 @@ bool InitializeDirect3d11App(HINSTANCE hInstance)
     //    3. After calling SetFullscreenState, the app must call ResizeBuffers before Present.
     //    4. MSAA swapchains are not directly supported in flip model, so the app will need to do an MSAA resolve before issuing the Present.
     swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-    // In Full Screen Mode
-    //swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
 
 
     D3D_FEATURE_LEVEL featureLevel = D3D_FEATURE_LEVEL_11_0;
@@ -211,6 +209,13 @@ void DrawScene()
     d3d11DevCon->ClearRenderTargetView(renderTargetView, bgColor);
 
     SwapChain->Present(0, 0);
+
+    // Back Buffer Re-Binding
+    ID3D11Texture2D* backBuffer = nullptr;
+    SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&backBuffer));
+    d3d11Device->CreateRenderTargetView(backBuffer, nullptr, &renderTargetView);
+    backBuffer->Release();
+    d3d11DevCon->OMSetRenderTargets(1, &renderTargetView, nullptr);
 }
 
 int messageloop()
@@ -247,6 +252,24 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     case WM_DESTROY:
         PostQuitMessage(0);
         return 0;
-    }
+    // Full-screen transitions and buffer resizing
+    case WM_SIZE:
+        if (SwapChain)
+        {
+            d3d11DevCon->OMSetRenderTargets(0, 0, 0);
+            renderTargetView->Release();
+
+            HRESULT hr = SwapChain->ResizeBuffers(0, 0, 0, DXGI_FORMAT_UNKNOWN, 0);
+            if (SUCCEEDED(hr))
+            {
+                ID3D11Texture2D* backBuffer = nullptr;
+                SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&backBuffer));
+                d3d11Device->CreateRenderTargetView(backBuffer, nullptr, &renderTargetView);
+                backBuffer->Release();
+                d3d11DevCon->OMSetRenderTargets(1, &renderTargetView, nullptr);
+            }
+        }
+        return 0;
+}
     return DefWindowProcW(hwnd, msg, wParam, lParam);
 }
