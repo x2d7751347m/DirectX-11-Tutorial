@@ -210,7 +210,7 @@ void DrawScene()
 
     SwapChain->Present(0, 0);
 
-    // Back Buffer Re-Binding
+    // Rebinding the back buffer
     ID3D11Texture2D* backBuffer = nullptr;
     SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&backBuffer));
     d3d11Device->CreateRenderTargetView(backBuffer, nullptr, &renderTargetView);
