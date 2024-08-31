@@ -143,7 +143,12 @@ bool InitializeDirect3d11App(HINSTANCE hInstance)
     swapChainDesc.SampleDesc.Count = 1;
     swapChainDesc.SampleDesc.Quality = 0;
     swapChainDesc.Windowed = TRUE;
-    // Latest SwapEffect Model. When using the flip model, swapChainDesc.BufferCount must be set to 2 or higher.
+    // Latest SwapEffect Model.
+    // Flip model swapchains have a few additional requirements on top of blt swapchains :
+    //    1. The buffer count must be at least 2.
+    //    2. After Present calls, the back buffer needs to explicitly be re - bound to the D3D11 immediate context before it can be used again.
+    //    3. After calling SetFullscreenState, the app must call ResizeBuffers before Present.
+    //    4. MSAA swapchains are not directly supported in flip model, so the app will need to do an MSAA resolve before issuing the Present.
     swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
     // In Full Screen Mode
     //swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
