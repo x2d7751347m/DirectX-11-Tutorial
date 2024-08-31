@@ -15,12 +15,8 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="DirectX_11_Tutorial_Unicode.cpp">
+    <ClCompile Include="main_Unicode.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\.gitignore" />
-    <None Include="..\README.md" />
   </ItemGroup>
 </Project>

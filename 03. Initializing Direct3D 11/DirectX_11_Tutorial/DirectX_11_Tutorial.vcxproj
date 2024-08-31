@@ -129,11 +129,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="DirectX_11_Tutorial_Unicode.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\.gitignore" />
-    <None Include="..\README.md" />
+    <ClCompile Include="main.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

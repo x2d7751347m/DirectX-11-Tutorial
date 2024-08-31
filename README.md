@@ -7,3 +7,9 @@ The tutorial in the link above is great, but the code is outdated.
 So I rewrote it to bring it up to modern standards(Sep 2024).
 
 I worked in Unicode by default.
+
+### Environment
+
+- IDE: Visual Studio 2022
+- C++ Language Standard: C++20
+- Character Set: Unicode
