@@ -18,7 +18,6 @@ ComPtr<ID3D11Device1> g_pd3dDevice;
 ComPtr<ID3D11DeviceContext1> g_pd3dDeviceContext;
 ComPtr<ID3D11RenderTargetView> g_pRenderTargetView;
 ComPtr<ID3D11Buffer> g_pVertexBuffer;
-ComPtr<ID3D11Buffer> g_pIndexBuffer;
 ComPtr<ID3D11VertexShader> g_pVertexShader;
 ComPtr<ID3D11PixelShader> g_pPixelShader;
 ComPtr<ID3D11InputLayout> g_pVertexLayout;
@@ -28,6 +27,13 @@ constexpr LPCTSTR WndClassName = L"DirectXWindow";
 constexpr int Width = 800;
 constexpr int Height = 600;
 
+// Vertex Structure
+struct Vertex
+{
+    XMFLOAT3 Position;
+    XMFLOAT4 Color;
+};
+
 // Function Prototypes
 bool InitializeWindow(HINSTANCE hInstance, int nCmdShow);
 bool InitializeDirect3D();
@@ -36,25 +42,6 @@ bool InitializeScene();
 void UpdateScene();
 void DrawScene();
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
-
-//Vertex Structure and Vertex Layout (Input Layout)//
-struct Vertex    //Overloaded Vertex Structure
-{
-    Vertex() {}
-    Vertex(float x, float y, float z,
-        float cr, float cg, float cb, float ca)
-        : pos(x, y, z), color(cr, cg, cb, ca) {}
-
-    XMFLOAT3 pos;
-    XMFLOAT4 color;
-};
-
-D3D11_INPUT_ELEMENT_DESC layout[] =
-{
-    { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-    { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-};
-UINT numElements = ARRAYSIZE(layout);
 
 // Entry point
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
@@ -114,7 +101,7 @@ bool InitializeWindow(HINSTANCE hInstance, int nCmdShow)
     RECT rc = { 0, 0, Width, Height };
     AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, FALSE);
 
-    HWND hWnd = CreateWindow(WndClassName, L"DirectX 11 Application", WS_OVERLAPPEDWINDOW,
+    HWND hWnd = CreateWindow(WndClassName, L"Colored Triangle", WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT, rc.right - rc.left, rc.bottom - rc.top, nullptr, nullptr, hInstance, nullptr);
 
     if (!hWnd)
@@ -144,7 +131,6 @@ bool InitializeDirect3D()
 
     D3D_FEATURE_LEVEL featureLevel;
 
-    // Create Direct3D 11.1 device and context
     hr = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, createDeviceFlags,
         featureLevels, numFeatureLevels, D3D11_SDK_VERSION,
         reinterpret_cast<ID3D11Device**>(g_pd3dDevice.GetAddressOf()),
@@ -152,16 +138,7 @@ bool InitializeDirect3D()
         reinterpret_cast<ID3D11DeviceContext**>(g_pd3dDeviceContext.GetAddressOf()));
 
     if (FAILED(hr))
-    {
-        MessageBox(nullptr, L"D3D11CreateDevice Failed", L"Error", MB_OK);
         return false;
-    }
-
-    if (featureLevel != D3D_FEATURE_LEVEL_11_0 && featureLevel != D3D_FEATURE_LEVEL_11_1)
-    {
-        MessageBox(nullptr, L"Direct3D Feature Level 11 unsupported", L"Error", MB_OK);
-        return false;
-    }
 
     ComPtr<IDXGIFactory2> dxgiFactory;
     hr = CreateDXGIFactory1(IID_PPV_ARGS(&dxgiFactory));
@@ -175,7 +152,7 @@ bool InitializeDirect3D()
     sd.SampleDesc.Count = 1;
     sd.SampleDesc.Quality = 0;
     sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    sd.BufferCount = 2;  // Double buffering for flip model
+    sd.BufferCount = 2;
     sd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
     sd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 
@@ -183,10 +160,6 @@ bool InitializeDirect3D()
     if (FAILED(hr))
         return false;
 
-    // Disable Alt+Enter fullscreen toggle
-    dxgiFactory->MakeWindowAssociation(GetActiveWindow(), DXGI_MWA_NO_ALT_ENTER);
-
-    // Create a render target view
     ComPtr<ID3D11Texture2D> pBackBuffer;
     hr = g_pSwapChain->GetBuffer(0, IID_PPV_ARGS(&pBackBuffer));
     if (FAILED(hr))
@@ -233,6 +206,14 @@ bool InitializeScene()
     if (FAILED(hr))
         return false;
 
+    // Define the input layout
+    D3D11_INPUT_ELEMENT_DESC layout[] =
+    {
+        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+    };
+    UINT numElements = ARRAYSIZE(layout);
+
     // Create the input layout
     hr = g_pd3dDevice->CreateInputLayout(layout, numElements, pVSBlob->GetBufferPointer(),
         pVSBlob->GetBufferSize(), &g_pVertexLayout);
@@ -257,71 +238,24 @@ bool InitializeScene()
         return false;
 
     // Create vertex buffer
-    // 
-    // Triangle
-    //Vertex vertices[] =
-    //{
-    //    { XMFLOAT3(0.0f,  0.5f, 0.5f) },
-    //    { XMFLOAT3(0.5f, -0.5f, 0.5f) },
-    //    { XMFLOAT3(-0.5f, -0.5f, 0.5f) },
-    //};
-
-
-
-    //// Square
-    //Vertex vertices[] =
-    //{
-    //    { XMFLOAT3(-0.5f,  0.5f, 0.5f) },
-    //    { XMFLOAT3(0.5f,  0.5f, 0.5f) },
-    //    { XMFLOAT3(-0.5f, -0.5f, 0.5f) },
-    //    { XMFLOAT3(0.5f, -0.5f, 0.5f) },
-    //};
-
-    Vertex v[] =
+    Vertex vertices[] =
     {
-        ///////////////**************new**************////////////////////
-        Vertex(0.0f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f),
-        Vertex(0.5f, -0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f),
-        Vertex(-0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f),
-        ///////////////**************new**************////////////////////
+        { XMFLOAT3(0.0f, 0.5f, 0.5f), XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f) },
+        { XMFLOAT3(0.5f, -0.5f, 0.5f), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) },
+        { XMFLOAT3(-0.5f, -0.5f, 0.5f), XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f) },
     };
-
 
     D3D11_BUFFER_DESC bd = {};
     bd.Usage = D3D11_USAGE_DEFAULT;
-    // Triangle
     bd.ByteWidth = sizeof(Vertex) * 3;
-    // Square
-    //bd.ByteWidth = sizeof(Vertex) * 4;
     bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
     bd.CPUAccessFlags = 0;
-    bd.MiscFlags = 0;
 
-    D3D11_SUBRESOURCE_DATA vertexBufferData = {};
-    vertexBufferData.pSysMem = v;
-    hr = g_pd3dDevice->CreateBuffer(&bd, &vertexBufferData, &g_pVertexBuffer);
+    D3D11_SUBRESOURCE_DATA InitData = {};
+    InitData.pSysMem = vertices;
+    hr = g_pd3dDevice->CreateBuffer(&bd, &InitData, &g_pVertexBuffer);
     if (FAILED(hr))
         return false;
-
-    // Additional Buffer For Square
-    //WORD indices[] = {
-    //0, 1, 2,  // First Triangle
-    //2, 1, 3   // Second Triangle
-    //};
-
-    //D3D11_BUFFER_DESC indexBufferDesc = {};
-    //indexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-    //indexBufferDesc.ByteWidth = sizeof(WORD) * 6;
-    //indexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-    //indexBufferDesc.CPUAccessFlags = 0;
-    //indexBufferDesc.MiscFlags = 0;
-
-    //D3D11_SUBRESOURCE_DATA indexData = {};
-    //indexData.pSysMem = indices;
-    //hr = g_pd3dDevice->CreateBuffer(&indexBufferDesc, &indexData, &g_pIndexBuffer);
-    //if (FAILED(hr))
-    //    return hr;
-    // Square End
 
     // Set vertex buffer
     UINT stride = sizeof(Vertex);
@@ -331,21 +265,12 @@ bool InitializeScene()
     // Set primitive topology
     g_pd3dDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-    // Square
-    g_pd3dDeviceContext->IASetIndexBuffer(g_pIndexBuffer.Get(), DXGI_FORMAT_R16_UINT, 0);
-    
-    // Draw lines
-    //g_pd3dDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
-
-    // Draw points
-    //g_pd3dDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
-
     return true;
 }
 
 void UpdateScene()
 {
-    // Update logic here
+    // Update logic here (if any)
 }
 
 void DrawScene()
@@ -354,15 +279,10 @@ void DrawScene()
     float ClearColor[4] = { 0.0f, 0.125f, 0.3f, 1.0f }; // RGBA
     g_pd3dDeviceContext->ClearRenderTargetView(g_pRenderTargetView.Get(), ClearColor);
 
-    // Render a triangle
+    // Render the triangle
     g_pd3dDeviceContext->VSSetShader(g_pVertexShader.Get(), nullptr, 0);
     g_pd3dDeviceContext->PSSetShader(g_pPixelShader.Get(), nullptr, 0);
-
-    // Triangle
     g_pd3dDeviceContext->Draw(3, 0);
-
-    // Square
-    //g_pd3dDeviceContext->DrawIndexed(6, 0, 0);
 
     // Present the information rendered to the back buffer to the front buffer (the screen)
     g_pSwapChain->Present(1, 0);  // Use vsync
@@ -374,7 +294,62 @@ void DrawScene()
     {
         g_pd3dDevice->CreateRenderTargetView(pBackBuffer.Get(), nullptr, &g_pRenderTargetView);
         g_pd3dDeviceContext->OMSetRenderTargets(1, g_pRenderTargetView.GetAddressOf(), nullptr);
+}
+}
+
+void ResizeDirectXBuffers(HWND hWnd, bool useQuarterSizeViewport = false)
+{
+    if (!g_pSwapChain) return;
+
+    RECT rc;
+    GetClientRect(hWnd, &rc);
+    UINT width = rc.right - rc.left;
+    UINT height = rc.bottom - rc.top;
+
+    g_pd3dDeviceContext->OMSetRenderTargets(0, 0, 0);
+    g_pRenderTargetView.Reset();
+
+    HRESULT hr = g_pSwapChain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
+    if (FAILED(hr))
+    {
+        // Handle error - maybe log it or show a message to the user
+        return;
     }
+
+    ComPtr<ID3D11Texture2D> pBuffer;
+    hr = g_pSwapChain->GetBuffer(0, IID_PPV_ARGS(&pBuffer));
+    if (FAILED(hr))
+    {
+        // Handle error
+        return;
+    }
+
+    hr = g_pd3dDevice->CreateRenderTargetView(pBuffer.Get(), nullptr, &g_pRenderTargetView);
+    if (FAILED(hr))
+    {
+        // Handle error
+        return;
+    }
+
+    g_pd3dDeviceContext->OMSetRenderTargets(1, g_pRenderTargetView.GetAddressOf(), nullptr);
+
+    // Update the viewport
+    D3D11_VIEWPORT vp;
+    if (useQuarterSizeViewport)
+    {
+        vp.Width = static_cast<float>(width) / 2;
+        vp.Height = static_cast<float>(height) / 2;
+    }
+    else
+    {
+        vp.Width = static_cast<float>(width);
+        vp.Height = static_cast<float>(height);
+    }
+    vp.MinDepth = 0.0f;
+    vp.MaxDepth = 1.0f;
+    vp.TopLeftX = 0;
+    vp.TopLeftY = 0;
+    g_pd3dDeviceContext->RSSetViewports(1, &vp);
 }
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -391,56 +366,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         PostQuitMessage(0);
         return 0;
     case WM_SIZE:
-        if (g_pSwapChain)
-        {
-            RECT rc;
-            GetClientRect(hWnd, &rc);
-            UINT width = rc.right - rc.left;
-            UINT height = rc.bottom - rc.top;
-
-            g_pd3dDeviceContext->OMSetRenderTargets(0, 0, 0);
-            g_pRenderTargetView.Reset();
-
-            HRESULT hr = g_pSwapChain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
-            if (SUCCEEDED(hr))
-            {
-                ComPtr<ID3D11Texture2D> pBuffer;
-                hr = g_pSwapChain->GetBuffer(0, IID_PPV_ARGS(&pBuffer));
-                if (SUCCEEDED(hr))
-                {
-                    hr = g_pd3dDevice->CreateRenderTargetView(pBuffer.Get(), nullptr, &g_pRenderTargetView);
-                    if (SUCCEEDED(hr))
-                    {
-                        g_pd3dDeviceContext->OMSetRenderTargets(1, g_pRenderTargetView.GetAddressOf(), nullptr);
-
-                        // Update the viewport
-                        D3D11_VIEWPORT vp;
-                        vp.Width = static_cast<float>(width);
-                        vp.Height = static_cast<float>(height);
-                        vp.MinDepth = 0.0f;
-                        vp.MaxDepth = 1.0f;
-                        vp.TopLeftX = 0;
-                        vp.TopLeftY = 0;
-                        g_pd3dDeviceContext->RSSetViewports(1, &vp);
-
-                        //// Setting a quarter-sized viewport
-                        //D3D11_VIEWPORT vp;
-                        //vp.Width = static_cast<float>(Width) / 2;
-                        //vp.Height = static_cast<float>(Height) / 2;
-                        //vp.MinDepth = 0.0f;
-                        //vp.MaxDepth = 1.0f;
-                        //vp.TopLeftX = 0;
-                        //vp.TopLeftY = 0;
-
-                        //g_pd3dDeviceContext->RSSetViewports(1, &vp);
-                    }
-                }
-            }
-        }
+        ResizeDirectXBuffers(hWnd);
         return 0;
     default:
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
-
-    return 0;
 }
