@@ -318,10 +318,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
             DestroyWindow(hWnd);
         }
-        break;
+        return 0;
     case WM_DESTROY:
         PostQuitMessage(0);
-        break;
+        return 0;
     case WM_SIZE:
         if (g_pSwapChain)
         {
@@ -358,7 +358,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 }
             }
         }
-        break;
+        return 0;
     default:
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
