@@ -18,6 +18,7 @@ ComPtr<ID3D11Device1> g_pd3dDevice;
 ComPtr<ID3D11DeviceContext1> g_pd3dDeviceContext;
 ComPtr<ID3D11RenderTargetView> g_pRenderTargetView;
 ComPtr<ID3D11Buffer> g_pVertexBuffer;
+ComPtr<ID3D11Buffer> g_pIndexBuffer;
 ComPtr<ID3D11VertexShader> g_pVertexShader;
 ComPtr<ID3D11PixelShader> g_pPixelShader;
 ComPtr<ID3D11InputLayout> g_pVertexLayout;
@@ -36,11 +37,24 @@ void UpdateScene();
 void DrawScene();
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 
-// Vertex Structure
-struct Vertex
+//Vertex Structure and Vertex Layout (Input Layout)//
+struct Vertex    //Overloaded Vertex Structure
 {
-    XMFLOAT3 Position;
+    Vertex() {}
+    Vertex(float x, float y, float z,
+        float cr, float cg, float cb, float ca)
+        : pos(x, y, z), color(cr, cg, cb, ca) {}
+
+    XMFLOAT3 pos;
+    XMFLOAT4 color;
 };
+
+D3D11_INPUT_ELEMENT_DESC layout[] =
+{
+    { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+    { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+};
+UINT numElements = ARRAYSIZE(layout);
 
 // Entry point
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
@@ -207,7 +221,7 @@ bool InitializeScene()
 
     // Compile the vertex shader
     ComPtr<ID3DBlob> pVSBlob;
-    hr = D3DCompileFromFile(L"VertexShader.hlsl", nullptr, nullptr, "main", "vs_5_0", 0, 0, &pVSBlob, nullptr);
+    hr = D3DCompileFromFile(L"Effects.fx", nullptr, nullptr, "VS", "vs_5_0", 0, 0, &pVSBlob, nullptr);
     if (FAILED(hr))
     {
         MessageBox(nullptr, L"The FX file cannot be compiled.  Please run this executable from the directory that contains the FX file.", L"Error", MB_OK);
@@ -218,13 +232,6 @@ bool InitializeScene()
     hr = g_pd3dDevice->CreateVertexShader(pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(), nullptr, &g_pVertexShader);
     if (FAILED(hr))
         return false;
-
-    // Define the input layout
-    D3D11_INPUT_ELEMENT_DESC layout[] =
-    {
-        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-    };
-    UINT numElements = ARRAYSIZE(layout);
 
     // Create the input layout
     hr = g_pd3dDevice->CreateInputLayout(layout, numElements, pVSBlob->GetBufferPointer(),
@@ -237,7 +244,7 @@ bool InitializeScene()
 
     // Compile the pixel shader
     ComPtr<ID3DBlob> pPSBlob;
-    hr = D3DCompileFromFile(L"PixelShader.hlsl", nullptr, nullptr, "main", "ps_5_0", 0, 0, &pPSBlob, nullptr);
+    hr = D3DCompileFromFile(L"Effects.fx", nullptr, nullptr, "PS", "ps_5_0", 0, 0, &pPSBlob, nullptr);
     if (FAILED(hr))
     {
         MessageBox(nullptr, L"The FX file cannot be compiled.  Please run this executable from the directory that contains the FX file.", L"Error", MB_OK);
@@ -250,24 +257,71 @@ bool InitializeScene()
         return false;
 
     // Create vertex buffer
-    Vertex vertices[] =
+    // 
+    // Triangle
+    //Vertex vertices[] =
+    //{
+    //    { XMFLOAT3(0.0f,  0.5f, 0.5f) },
+    //    { XMFLOAT3(0.5f, -0.5f, 0.5f) },
+    //    { XMFLOAT3(-0.5f, -0.5f, 0.5f) },
+    //};
+
+
+
+    //// Square
+    //Vertex vertices[] =
+    //{
+    //    { XMFLOAT3(-0.5f,  0.5f, 0.5f) },
+    //    { XMFLOAT3(0.5f,  0.5f, 0.5f) },
+    //    { XMFLOAT3(-0.5f, -0.5f, 0.5f) },
+    //    { XMFLOAT3(0.5f, -0.5f, 0.5f) },
+    //};
+
+    Vertex v[] =
     {
-        { XMFLOAT3(0.0f,  0.5f, 0.5f) },
-        { XMFLOAT3(0.5f, -0.5f, 0.5f) },
-        { XMFLOAT3(-0.5f, -0.5f, 0.5f) },
+        ///////////////**************new**************////////////////////
+        Vertex(0.0f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f),
+        Vertex(0.5f, -0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f),
+        Vertex(-0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f),
+        ///////////////**************new**************////////////////////
     };
+
 
     D3D11_BUFFER_DESC bd = {};
     bd.Usage = D3D11_USAGE_DEFAULT;
+    // Triangle
     bd.ByteWidth = sizeof(Vertex) * 3;
+    // Square
+    //bd.ByteWidth = sizeof(Vertex) * 4;
     bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
     bd.CPUAccessFlags = 0;
+    bd.MiscFlags = 0;
 
-    D3D11_SUBRESOURCE_DATA InitData = {};
-    InitData.pSysMem = vertices;
-    hr = g_pd3dDevice->CreateBuffer(&bd, &InitData, &g_pVertexBuffer);
+    D3D11_SUBRESOURCE_DATA vertexBufferData = {};
+    vertexBufferData.pSysMem = v;
+    hr = g_pd3dDevice->CreateBuffer(&bd, &vertexBufferData, &g_pVertexBuffer);
     if (FAILED(hr))
         return false;
+
+    // Additional Buffer For Square
+    //WORD indices[] = {
+    //0, 1, 2,  // First Triangle
+    //2, 1, 3   // Second Triangle
+    //};
+
+    //D3D11_BUFFER_DESC indexBufferDesc = {};
+    //indexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+    //indexBufferDesc.ByteWidth = sizeof(WORD) * 6;
+    //indexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+    //indexBufferDesc.CPUAccessFlags = 0;
+    //indexBufferDesc.MiscFlags = 0;
+
+    //D3D11_SUBRESOURCE_DATA indexData = {};
+    //indexData.pSysMem = indices;
+    //hr = g_pd3dDevice->CreateBuffer(&indexBufferDesc, &indexData, &g_pIndexBuffer);
+    //if (FAILED(hr))
+    //    return hr;
+    // Square End
 
     // Set vertex buffer
     UINT stride = sizeof(Vertex);
@@ -276,6 +330,15 @@ bool InitializeScene()
 
     // Set primitive topology
     g_pd3dDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+    // Square
+    g_pd3dDeviceContext->IASetIndexBuffer(g_pIndexBuffer.Get(), DXGI_FORMAT_R16_UINT, 0);
+    
+    // Draw lines
+    //g_pd3dDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+
+    // Draw points
+    //g_pd3dDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
 
     return true;
 }
@@ -294,7 +357,12 @@ void DrawScene()
     // Render a triangle
     g_pd3dDeviceContext->VSSetShader(g_pVertexShader.Get(), nullptr, 0);
     g_pd3dDeviceContext->PSSetShader(g_pPixelShader.Get(), nullptr, 0);
+
+    // Triangle
     g_pd3dDeviceContext->Draw(3, 0);
+
+    // Square
+    //g_pd3dDeviceContext->DrawIndexed(6, 0, 0);
 
     // Present the information rendered to the back buffer to the front buffer (the screen)
     g_pSwapChain->Present(1, 0);  // Use vsync
@@ -354,6 +422,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                         vp.TopLeftX = 0;
                         vp.TopLeftY = 0;
                         g_pd3dDeviceContext->RSSetViewports(1, &vp);
+
+                        //// Setting a quarter-sized viewport
+                        //D3D11_VIEWPORT vp;
+                        //vp.Width = static_cast<float>(Width) / 2;
+                        //vp.Height = static_cast<float>(Height) / 2;
+                        //vp.MinDepth = 0.0f;
+                        //vp.MaxDepth = 1.0f;
+                        //vp.TopLeftX = 0;
+                        //vp.TopLeftY = 0;
+
+                        //g_pd3dDeviceContext->RSSetViewports(1, &vp);
                     }
                 }
             }
