@@ -18,6 +18,7 @@ ComPtr<ID3D11Device1> g_pd3dDevice;
 ComPtr<ID3D11DeviceContext1> g_pd3dDeviceContext;
 ComPtr<ID3D11RenderTargetView> g_pRenderTargetView;
 ComPtr<ID3D11Buffer> g_pVertexBuffer;
+ComPtr<ID3D11Buffer> g_pIndexBuffer;
 ComPtr<ID3D11VertexShader> g_pVertexShader;
 ComPtr<ID3D11PixelShader> g_pPixelShader;
 ComPtr<ID3D11InputLayout> g_pVertexLayout;
@@ -250,16 +251,30 @@ bool InitializeScene()
         return false;
 
     // Create vertex buffer
+    // 
+    // Triangle
+    //Vertex vertices[] =
+    //{
+    //    { XMFLOAT3(0.0f,  0.5f, 0.5f) },
+    //    { XMFLOAT3(0.5f, -0.5f, 0.5f) },
+    //    { XMFLOAT3(-0.5f, -0.5f, 0.5f) },
+    //};
+
+    // Square
     Vertex vertices[] =
     {
-        { XMFLOAT3(0.0f,  0.5f, 0.5f) },
-        { XMFLOAT3(0.5f, -0.5f, 0.5f) },
+        { XMFLOAT3(-0.5f,  0.5f, 0.5f) },
+        { XMFLOAT3(0.5f,  0.5f, 0.5f) },
         { XMFLOAT3(-0.5f, -0.5f, 0.5f) },
+        { XMFLOAT3(0.5f, -0.5f, 0.5f) },
     };
 
     D3D11_BUFFER_DESC bd = {};
     bd.Usage = D3D11_USAGE_DEFAULT;
-    bd.ByteWidth = sizeof(Vertex) * 3;
+    // Triangle
+    //bd.ByteWidth = sizeof(Vertex) * 3;
+    // Square
+    bd.ByteWidth = sizeof(Vertex) * 4;
     bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
     bd.CPUAccessFlags = 0;
 
@@ -269,6 +284,26 @@ bool InitializeScene()
     if (FAILED(hr))
         return false;
 
+    // Additional Buffer For Square
+    WORD indices[] = {
+    0, 1, 2,  // First Triangle
+    2, 1, 3   // Second Triangle
+    };
+
+    D3D11_BUFFER_DESC indexBufferDesc = {};
+    indexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+    indexBufferDesc.ByteWidth = sizeof(WORD) * 6;
+    indexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+    indexBufferDesc.CPUAccessFlags = 0;
+    indexBufferDesc.MiscFlags = 0;
+
+    D3D11_SUBRESOURCE_DATA indexData = {};
+    indexData.pSysMem = indices;
+    hr = g_pd3dDevice->CreateBuffer(&indexBufferDesc, &indexData, &g_pIndexBuffer);
+    if (FAILED(hr))
+        return hr;
+    // Square End
+
     // Set vertex buffer
     UINT stride = sizeof(Vertex);
     UINT offset = 0;
@@ -276,6 +311,15 @@ bool InitializeScene()
 
     // Set primitive topology
     g_pd3dDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+    // Square
+    g_pd3dDeviceContext->IASetIndexBuffer(g_pIndexBuffer.Get(), DXGI_FORMAT_R16_UINT, 0);
+    
+    // Draw lines
+    //g_pd3dDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+
+    // Draw points
+    //g_pd3dDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
 
     return true;
 }
@@ -294,7 +338,12 @@ void DrawScene()
     // Render a triangle
     g_pd3dDeviceContext->VSSetShader(g_pVertexShader.Get(), nullptr, 0);
     g_pd3dDeviceContext->PSSetShader(g_pPixelShader.Get(), nullptr, 0);
-    g_pd3dDeviceContext->Draw(3, 0);
+
+    // Triangle
+    //g_pd3dDeviceContext->Draw(3, 0);
+
+    // Square
+    g_pd3dDeviceContext->DrawIndexed(6, 0, 0);
 
     // Present the information rendered to the back buffer to the front buffer (the screen)
     g_pSwapChain->Present(1, 0);  // Use vsync
@@ -354,6 +403,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                         vp.TopLeftX = 0;
                         vp.TopLeftY = 0;
                         g_pd3dDeviceContext->RSSetViewports(1, &vp);
+
+                        //// Setting a quarter-sized viewport
+                        //D3D11_VIEWPORT vp;
+                        //vp.Width = static_cast<float>(Width) / 2;
+                        //vp.Height = static_cast<float>(Height) / 2;
+                        //vp.MinDepth = 0.0f;
+                        //vp.MaxDepth = 1.0f;
+                        //vp.TopLeftX = 0;
+                        //vp.TopLeftY = 0;
+
+                        //g_pd3dDeviceContext->RSSetViewports(1, &vp);
                     }
                 }
             }
