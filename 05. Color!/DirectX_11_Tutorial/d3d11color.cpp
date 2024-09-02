@@ -313,7 +313,14 @@ void DrawScene()
         MessageBox(GetActiveWindow(), L"Failed to present swap chain buffer", L"Error", MB_OK);
     }
 
-    ResizeDirectXBuffers(GetActiveWindow());
+    // Rebind the back buffer
+    ComPtr<ID3D11Texture2D> pBackBuffer;
+    hr = g_pSwapChain->GetBuffer(0, IID_PPV_ARGS(&pBackBuffer));
+    if (SUCCEEDED(hr))
+    {
+        g_pd3dDevice->CreateRenderTargetView(pBackBuffer.Get(), nullptr, &g_pRenderTargetView);
+        g_pd3dDeviceContext->OMSetRenderTargets(1, g_pRenderTargetView.GetAddressOf(), nullptr);
+    }
 }
 
 void ResizeDirectXBuffers(HWND hWnd)
