@@ -35,6 +35,9 @@ UINT g_ResizeHeight = 0;
 bool g_ResizePending = false;
 DWORD g_ResizeLastTime = 0;
 constexpr DWORD RESIZE_DELAY_MS = 300;  // 300ms delay for resize
+bool g_DeviceRemoved = false;
+D3D11_VIEWPORT g_Viewport = {};
+bool g_Resizing = false;
 
 // Vertex Structure
 struct Vertex
@@ -55,6 +58,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 void ResizeDirectXBuffers(HWND hWnd);
 void ToggleFullscreen(HWND hWnd);
 void HandleResize();
+bool RecreateDevice();
+bool RecreateRenderTargetView();
 
 // Entry point
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
@@ -165,7 +170,7 @@ bool InitializeDirect3D()
     sd.SampleDesc.Count = 1;
     sd.SampleDesc.Quality = 0;
     sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    sd.BufferCount = 2;
+    sd.BufferCount = 2; // Double buffering
     sd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
     sd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 
@@ -173,7 +178,6 @@ bool InitializeDirect3D()
     if (FAILED(hr))
         return false;
 
-    // Initial creation of render target view
     ResizeDirectXBuffers(GetActiveWindow());
 
     return true;
@@ -287,11 +291,10 @@ void DrawScene()
 {
     if (!g_pRenderTargetView)
     {
-        // If render target view is null, try to recreate it
-        ResizeDirectXBuffers(GetActiveWindow());
-        if (!g_pRenderTargetView)
+        // Render target view is null, attempt to recreate it
+        if (!RecreateRenderTargetView())
         {
-            // If still null, skip this frame
+            // Unable to recreate render target view, skip this frame
             return;
         }
     }
@@ -299,6 +302,12 @@ void DrawScene()
     // Clear the back buffer
     float ClearColor[4] = { 0.0f, 0.125f, 0.3f, 1.0f }; // RGBA
     g_pd3dDeviceContext->ClearRenderTargetView(g_pRenderTargetView.Get(), ClearColor);
+
+    // Set the render target
+    g_pd3dDeviceContext->OMSetRenderTargets(1, g_pRenderTargetView.GetAddressOf(), nullptr);
+
+    // Set the viewport
+    g_pd3dDeviceContext->RSSetViewports(1, &g_Viewport);
 
     // Render the triangle
     g_pd3dDeviceContext->VSSetShader(g_pVertexShader.Get(), nullptr, 0);
@@ -308,30 +317,78 @@ void DrawScene()
     // Present the information rendered to the back buffer to the front buffer (the screen)
     HRESULT hr = g_pSwapChain->Present(1, 0);  // Use vsync
 
-    if (FAILED(hr))
+    if (hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET)
+    {
+        RecreateDevice();
+    }
+    else if (FAILED(hr))
     {
         MessageBox(GetActiveWindow(), L"Failed to present swap chain buffer", L"Error", MB_OK);
     }
+}
 
-    // Rebind the back buffer
+bool RecreateRenderTargetView()
+{
+    HRESULT hr;
+
+    // Release the old render target view
+    g_pRenderTargetView.Reset();
+
+    // Get the texture from the swap chain
     ComPtr<ID3D11Texture2D> pBackBuffer;
     hr = g_pSwapChain->GetBuffer(0, IID_PPV_ARGS(&pBackBuffer));
-    if (SUCCEEDED(hr))
+    if (FAILED(hr))
     {
-        g_pd3dDevice->CreateRenderTargetView(pBackBuffer.Get(), nullptr, &g_pRenderTargetView);
-        g_pd3dDeviceContext->OMSetRenderTargets(1, g_pRenderTargetView.GetAddressOf(), nullptr);
+        MessageBox(GetActiveWindow(), L"Failed to get swap chain buffer", L"Error", MB_OK);
+        return false;
     }
+
+    // Create the render target view
+    hr = g_pd3dDevice->CreateRenderTargetView(pBackBuffer.Get(), nullptr, &g_pRenderTargetView);
+    if (FAILED(hr))
+    {
+        MessageBox(GetActiveWindow(), L"Failed to create render target view", L"Error", MB_OK);
+        return false;
+    }
+
+    return true;
+}
+
+bool RecreateDevice()
+{
+    // Release all device-dependent resources
+    g_pRenderTargetView.Reset();
+    g_pSwapChain.Reset();
+    g_pd3dDeviceContext.Reset();
+    g_pd3dDevice.Reset();
+
+    // Recreate the device and swap chain
+    if (!InitializeDirect3D())
+    {
+        MessageBox(GetActiveWindow(), L"Failed to reinitialize Direct3D", L"Error", MB_OK);
+        return false;
+    }
+
+    // Recreate other resources (vertex buffer, shaders, etc.)
+    if (!InitializeScene())
+    {
+        MessageBox(GetActiveWindow(), L"Failed to reinitialize scene", L"Error", MB_OK);
+        return false;
+    }
+
+    return true;
 }
 
 void ResizeDirectXBuffers(HWND hWnd)
 {
     if (!g_pSwapChain) return;
 
-    // Release the old render target view
-    g_pd3dDeviceContext->OMSetRenderTargets(0, nullptr, nullptr);
+    // Release all outstanding references to the swap chain's buffers
     g_pRenderTargetView.Reset();
+    ID3D11RenderTargetView* nullViews[] = { nullptr };
+    g_pd3dDeviceContext->OMSetRenderTargets(_countof(nullViews), nullViews, nullptr);
+    g_pd3dDeviceContext->Flush();
 
-    // Resize the swap chain
     RECT rc;
     GetClientRect(hWnd, &rc);
     UINT width = rc.right - rc.left;
@@ -345,33 +402,19 @@ void ResizeDirectXBuffers(HWND hWnd)
     }
 
     // Recreate the render target view
-    ComPtr<ID3D11Texture2D> pBuffer;
-    hr = g_pSwapChain->GetBuffer(0, IID_PPV_ARGS(&pBuffer));
-    if (FAILED(hr))
+    if (!RecreateRenderTargetView())
     {
-        MessageBox(hWnd, L"Failed to get swap chain buffer", L"Error", MB_OK);
         return;
     }
-
-    hr = g_pd3dDevice->CreateRenderTargetView(pBuffer.Get(), nullptr, &g_pRenderTargetView);
-    if (FAILED(hr))
-    {
-        MessageBox(hWnd, L"Failed to create render target view", L"Error", MB_OK);
-        return;
-    }
-
-    // Bind the render target view
-    g_pd3dDeviceContext->OMSetRenderTargets(1, g_pRenderTargetView.GetAddressOf(), nullptr);
 
     // Update the viewport
-    D3D11_VIEWPORT vp;
-    vp.Width = static_cast<float>(width);
-    vp.Height = static_cast<float>(height);
-    vp.MinDepth = 0.0f;
-    vp.MaxDepth = 1.0f;
-    vp.TopLeftX = 0;
-    vp.TopLeftY = 0;
-    g_pd3dDeviceContext->RSSetViewports(1, &vp);
+    g_Viewport.Width = static_cast<float>(width);
+    g_Viewport.Height = static_cast<float>(height);
+    g_Viewport.MinDepth = 0.0f;
+    g_Viewport.MaxDepth = 1.0f;
+    g_Viewport.TopLeftX = 0;
+    g_Viewport.TopLeftY = 0;
+    g_pd3dDeviceContext->RSSetViewports(1, &g_Viewport);
 }
 
 void ToggleFullscreen(HWND hWnd)
@@ -449,16 +492,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_DESTROY:
         PostQuitMessage(0);
         return 0;
+    case WM_ENTERSIZEMOVE:
+        g_Resizing = true;
+        return 0;
+    case WM_EXITSIZEMOVE:
+        g_Resizing = false;
+        ResizeDirectXBuffers(hWnd);
+        return 0;
     case WM_SIZE:
         if (g_pd3dDevice)
         {
-            g_ResizeWidth = LOWORD(lParam);
-            g_ResizeHeight = HIWORD(lParam);
-
-            if (wParam != SIZE_MINIMIZED)
+            if (wParam == SIZE_MINIMIZED)
             {
-                g_ResizePending = true;
-                g_ResizeLastTime = GetTickCount();
+                return 0;
+            }
+            else if (wParam == SIZE_MAXIMIZED || (wParam == SIZE_RESTORED && !g_Resizing))
+            {
+                ResizeDirectXBuffers(hWnd);
             }
         }
         return 0;
