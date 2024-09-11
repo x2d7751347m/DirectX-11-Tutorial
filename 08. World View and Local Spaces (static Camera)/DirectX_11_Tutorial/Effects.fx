@@ -1,6 +1,7 @@
 cbuffer cbPerObject : register(b0)
 {
     float4x4 WVP;
+    float4 AdditionalColor;
 };
 
 struct VS_OUTPUT
@@ -21,5 +22,5 @@ VS_OUTPUT VS(float4 inPos : POSITION, float4 inColor : COLOR)
 
 float4 PS(VS_OUTPUT input) : SV_TARGET
 {
-    return input.Color;
+    return lerp(input.Color, AdditionalColor, AdditionalColor.a);
 }
