@@ -389,7 +389,7 @@ void UpdateScene()
     orbitAxis = XMVector3Normalize(orbitAxis);
 
     XMMATRIX orbit = XMMatrixRotationAxis(orbitAxis, t);
-    XMMATRIX translation = XMMatrixTranslation(3.0f, 0.0f, 0.0f);
+    XMMATRIX translation = XMMatrixTranslation(5.0f * sinf(t * 0.5f), 0.0f, 0.0f);
     XMMATRIX rotation = XMMatrixRotationY(t * 2.0f);
     XMMATRIX scaling = XMMatrixScaling(0.5f + 0.25f * sinf(t), 0.5f + 0.25f * sinf(t), 0.5f + 0.25f * sinf(t));
 
